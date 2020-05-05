@@ -32,13 +32,13 @@ int main(int argc, const char *argv[])
     string imgPrefix = "KITTI/2011_09_26/image_00/data/000000"; // left camera, color
     string imgFileType = ".png";
     int imgStartIndex = 0; // first file index to load (assumes Lidar and camera names have identical naming convention)
-    int imgEndIndex = 9;   // last file index to load
+    int imgEndIndex = 1;   // last file index to load
     int imgFillWidth = 4;  // no. of digits which make up the file index (e.g. img-0001.png)
 
     // misc
     int dataBufferSize = 2;       // no. of images which are held in memory (ring buffer) at the same time
     vector<DataFrame> dataBuffer; // list of data frames which are held in memory at the same time
-    bool bVis = false;            // visualize results
+    bool bVis = true;            // visualize results
 
     /* MAIN LOOP OVER ALL IMAGES */
 
@@ -76,8 +76,10 @@ int main(int argc, const char *argv[])
 
         // extract 2D keypoints from current image
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
-        string detectorType = "SHITOMASI";
-
+        // string detectorType = "SHITOMASI";
+        // string detectorType = "HARRIS";
+        string detectorType = "FAST";
+        // string detectorType = "SURF";  // to test error handling
         //// STUDENT ASSIGNMENT
         //// TASK MP.2 -> add the following keypoint detectors in file matching2D.cpp and enable string-based selection based on detectorType
         //// -> HARRIS, FAST, BRISK, ORB, AKAZE, SIFT
@@ -86,10 +88,15 @@ int main(int argc, const char *argv[])
         {
             detKeypointsShiTomasi(keypoints, imgGray, false);
         }
+        else if (detectorType.compare("HARRIS") == 0)
+        {
+            detKeypointsHarris(keypoints,imgGray,bVis);
+        }
         else
         {
-            //...
+            detKeypointsModern(keypoints,imgGray,detectorType,bVis); // please note the function have internal error check for unimplemented detectors
         }
+
         //// EOF STUDENT ASSIGNMENT
 
         //// STUDENT ASSIGNMENT
@@ -100,13 +107,20 @@ int main(int argc, const char *argv[])
         cv::Rect vehicleRect(535, 180, 180, 150);
         if (bFocusOnVehicle)
         {
-            // ...
+            std::vector<cv::KeyPoint> filteredKeypoints;
+            std::cout<<"Focusing Only on ROI for Preciding Vehicle , other Keypoint will be erased"<<std::endl;
+            for (cv::KeyPoint keypoint : keypoints)
+            {
+                if (vehicleRect.contains(keypoint.pt))
+                    filteredKeypoints.push_back(keypoint);
+            }
+            keypoints = filteredKeypoints;
         }
 
         //// EOF STUDENT ASSIGNMENT
 
         // optional : limit number of keypoints (helpful for debugging and learning)
-        bool bLimitKpts = true;
+        bool bLimitKpts = false;
         if (bLimitKpts)
         {
             int maxKeypoints = 50;
