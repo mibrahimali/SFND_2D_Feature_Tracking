@@ -6,6 +6,8 @@
 #include <vector>
 #include <cmath>
 #include <limits>
+#include <algorithm>
+#include <numeric>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -40,6 +42,18 @@ int main(int argc, const char *argv[])
     vector<DataFrame> dataBuffer; // list of data frames which are held in memory at the same time
     bool bVis = false;            // visualize results
 
+    // Pipeline Algorithms
+    string detectorType;
+    string descriptorType;
+    detectorType = "AKAZE"; // SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT
+    descriptorType = "AKAZE"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
+    // Statistical Analysis Variables
+    vector<double> detector_runtimes;
+    vector<double> descriptor_runtimes;
+    vector<size_t> total_detected_keypoints;
+    vector<size_t> filtered_keypoints_count;
+    vector<size_t> matches_count;
+    
     /* MAIN LOOP OVER ALL IMAGES */
 
     for (size_t imgIndex = 0; imgIndex <= imgEndIndex - imgStartIndex; imgIndex++)
@@ -70,33 +84,31 @@ int main(int argc, const char *argv[])
             dataBuffer.erase(dataBuffer.begin());
         }
         //// EOF STUDENT ASSIGNMENT
-        cout << "#1 : LOAD IMAGE INTO BUFFER done , buffer size = "<<dataBuffer.size() << endl;
+        // cout << "#1 : LOAD IMAGE INTO BUFFER done , buffer size = "<<dataBuffer.size() << endl;
 
         /* DETECT IMAGE KEYPOINTS */
 
         // extract 2D keypoints from current image
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
-        // string detectorType = "SHITOMASI";
-        // string detectorType = "HARRIS";
-        string detectorType = "FAST";
-        // string detectorType = "SURF";  // to test error handling
+
         //// STUDENT ASSIGNMENT
         //// TASK MP.2 -> add the following keypoint detectors in file matching2D.cpp and enable string-based selection based on detectorType
-        //// -> HARRIS, FAST, BRISK, ORB, AKAZE, SIFT
 
+        double runtime;
         if (detectorType.compare("SHITOMASI") == 0)
         {
-            detKeypointsShiTomasi(keypoints, imgGray, false);
+            runtime = detKeypointsShiTomasi(keypoints, imgGray, bVis);
         }
         else if (detectorType.compare("HARRIS") == 0)
         {
-            detKeypointsHarris(keypoints,imgGray,bVis);
+            runtime = detKeypointsHarris(keypoints,imgGray,bVis);
         }
         else
         {
-            detKeypointsModern(keypoints,imgGray,detectorType,bVis); // please note the function have internal error check for unimplemented detectors
+            runtime = detKeypointsModern(keypoints,imgGray,detectorType,bVis); // please note the function have internal error check for unimplemented detectors
         }
-
+        detector_runtimes.push_back(runtime);
+        total_detected_keypoints.push_back(keypoints.size());
         //// EOF STUDENT ASSIGNMENT
 
         //// STUDENT ASSIGNMENT
@@ -108,7 +120,7 @@ int main(int argc, const char *argv[])
         if (bFocusOnVehicle)
         {
             std::vector<cv::KeyPoint> filteredKeypoints;
-            std::cout<<"Focusing Only on ROI for Preciding Vehicle , other Keypoint will be erased"<<std::endl;
+            // std::cout<<"Focusing Only on ROI for Preciding Vehicle , other Keypoint will be erased"<<std::endl;
             for (cv::KeyPoint keypoint : keypoints)
             {
                 if (vehicleRect.contains(keypoint.pt))
@@ -116,7 +128,19 @@ int main(int argc, const char *argv[])
             }
             keypoints = filteredKeypoints;
         }
+        filtered_keypoints_count.push_back(keypoints.size());
 
+        double mean = std::accumulate(keypoints.begin(), keypoints.end(), 0.0,
+            [](double sum, const cv::KeyPoint& i) { return sum + i.size ;}) /keypoints.size();
+        auto add_square = [mean](double sum, const cv::KeyPoint& i)
+        {
+            auto d = i.size - mean;
+            return sum + d*d;
+        };
+        double total = std::accumulate(keypoints.begin(), keypoints.end(), 0.0, add_square);
+        double variance = total / keypoints.size();
+
+        std::cout<< detectorType<<" Detector detect keypoints with mean "<<mean<<"and var "<< variance<<endl;
         //// EOF STUDENT ASSIGNMENT
 
         // optional : limit number of keypoints (helpful for debugging and learning)
@@ -135,24 +159,21 @@ int main(int argc, const char *argv[])
 
         // push keypoints and descriptor for current frame to end of data buffer
         (dataBuffer.end() - 1)->keypoints = keypoints;
-        cout << "#2 : DETECT KEYPOINTS done" << endl;
+        // cout << "#2 : DETECT KEYPOINTS done" << endl;
 
         /* EXTRACT KEYPOINT DESCRIPTORS */
 
         //// STUDENT ASSIGNMENT
         //// TASK MP.4 -> add the following descriptors in file matching2D.cpp and enable string-based selection based on descriptorType
-        //// -> BRIEF, ORB, FREAK, AKAZE, SIFT
 
-        cv::Mat descriptors;
-        // string descriptorType = "ORB"; // BRIEF, ORB, FREAK, AKAZE, SIFT
-        string descriptorType = "SIFT"; // BRIEF, ORB, FREAK, AKAZE, SIFT
-        descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType);
+        cv::Mat descriptors; 
+        runtime = descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType);
         //// EOF STUDENT ASSIGNMENT
 
         // push descriptors for current frame to end of data buffer
         (dataBuffer.end() - 1)->descriptors = descriptors;
-
-        cout << "#3 : EXTRACT DESCRIPTORS done" << endl;
+        descriptor_runtimes.push_back(runtime);
+        // cout << "#3 : EXTRACT DESCRIPTORS done" << endl;
 
         if (dataBuffer.size() > 1) // wait until at least two images have been processed
         {
@@ -160,10 +181,9 @@ int main(int argc, const char *argv[])
             /* MATCH KEYPOINT DESCRIPTORS */
 
             vector<cv::DMatch> matches;
-            // string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
-            string matcherType = "MAT_FLANN";        // MAT_BF, MAT_FLANN
-            // string descriptorType = "DES_BINARY"; // DES_BINARY, DES_HOG
-            string descriptorFamily = descriptorType.compare("SIFT") == 0 ? "DES_HOG" : "DES_BINARY"; // DES_BINARY, DES_HOG
+            string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
+            // string matcherType = "MAT_FLANN";        // MAT_BF, MAT_FLANN
+            string descriptorFamily = (descriptorType.compare("SIFT") == 0 )? "DES_HOG":"DES_BINARY"; // DES_BINARY, DES_HOG
             // string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
             string selectorType = "SEL_KNN";       // SEL_NN, SEL_KNN
 
@@ -179,11 +199,11 @@ int main(int argc, const char *argv[])
 
             // store matches in current data frame
             (dataBuffer.end() - 1)->kptMatches = matches;
-
-            cout << "#4 : MATCH KEYPOINT DESCRIPTORS done" << endl;
+            matches_count.push_back(matches.size());
+            // cout << "#4 : MATCH KEYPOINT DESCRIPTORS done" << endl;
 
             // visualize matches between current and previous image
-            bVis = true;
+            bVis = false;
             if (bVis)
             {
                 cv::Mat matchImg = ((dataBuffer.end() - 1)->cameraImg).clone();
@@ -204,5 +224,16 @@ int main(int argc, const char *argv[])
 
     } // eof loop over all images
 
+    // Run Statistical Analysis on  implemented pipeline
+    double average_detector_runtime = std::accumulate(detector_runtimes.begin(),detector_runtimes.end(),0.0)/detector_runtimes.size();
+    double average_detected_keypoints = std::accumulate(total_detected_keypoints.begin(),total_detected_keypoints.end(),0)/total_detected_keypoints.size();
+    double average_detected_keypoints_inbox = std::accumulate(filtered_keypoints_count.begin(),filtered_keypoints_count.end(),0)/filtered_keypoints_count.size();
+    
+    double average_descriptor_runtime = std::accumulate(descriptor_runtimes.begin(),descriptor_runtimes.end(),0.0)/descriptor_runtimes.size();
+    double average_matches_count = std::accumulate(matches_count.begin(),matches_count.end(),0)/matches_count.size();
+    std::cout<< detectorType<<" Detector run for "<<detector_runtimes.size()<< " with Avg. runtime "<<average_detector_runtime<<" ms"<<endl;
+    std::cout<< " Avg. Detected Keypoints "<< average_detected_keypoints << " and " << average_detected_keypoints_inbox << " are in ROI" << endl;
+    std::cout<< descriptorType<<" Descriptor run  "<< " with Avg. runtime "<<average_descriptor_runtime<<" ms"<<endl;
+    std::cout<< "Average number of matches found = "<<average_matches_count<<endl;
     return 0;
 }
