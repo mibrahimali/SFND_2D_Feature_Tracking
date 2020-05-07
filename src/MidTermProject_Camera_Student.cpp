@@ -40,13 +40,11 @@ int main(int argc, const char *argv[])
     // misc
     int dataBufferSize = 2;       // no. of images which are held in memory (ring buffer) at the same time
     vector<DataFrame> dataBuffer; // list of data frames which are held in memory at the same time
-    bool bVis = false;            // visualize results
+    bool bVis = true;            // visualize results
 
     // Pipeline Algorithms
-    string detectorType;
-    string descriptorType;
-    detectorType = "AKAZE"; // SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT
-    descriptorType = "AKAZE"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
+    string detectorType = "FAST"; // SHITOMASI, HARRIS, FAST, BRISK, ORB, AKAZE, SIFT
+    string descriptorType = "BRIEF"; // BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT
     // Statistical Analysis Variables
     vector<double> detector_runtimes;
     vector<double> descriptor_runtimes;
@@ -109,6 +107,11 @@ int main(int argc, const char *argv[])
         }
         detector_runtimes.push_back(runtime);
         total_detected_keypoints.push_back(keypoints.size());
+        
+        // cv::Mat visImage = img.clone();
+        // cv::drawKeypoints(img, keypoints, visImage, cv::Scalar::all(-1), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+        // cv::imwrite( imgNumber.str()+"keypoint.png", visImage );
+        
         //// EOF STUDENT ASSIGNMENT
 
         //// STUDENT ASSIGNMENT
@@ -117,6 +120,11 @@ int main(int argc, const char *argv[])
         // only keep keypoints on the preceding vehicle
         bool bFocusOnVehicle = true;
         cv::Rect vehicleRect(535, 180, 180, 150);
+        
+        // cv::Mat roi_img=img.clone();
+        // rectangle(roi_img,vehicleRect,cv::Scalar(255,0,0),3,8,0);
+        // cv::imwrite( imgNumber.str()+"ROI.png", roi_img );
+        
         if (bFocusOnVehicle)
         {
             std::vector<cv::KeyPoint> filteredKeypoints;
@@ -129,7 +137,8 @@ int main(int argc, const char *argv[])
             keypoints = filteredKeypoints;
         }
         filtered_keypoints_count.push_back(keypoints.size());
-
+        
+        // detected features neighboorhood distribution analysis
         double mean = std::accumulate(keypoints.begin(), keypoints.end(), 0.0,
             [](double sum, const cv::KeyPoint& i) { return sum + i.size ;}) /keypoints.size();
         auto add_square = [mean](double sum, const cv::KeyPoint& i)
@@ -140,7 +149,7 @@ int main(int argc, const char *argv[])
         double total = std::accumulate(keypoints.begin(), keypoints.end(), 0.0, add_square);
         double variance = total / keypoints.size();
 
-        std::cout<< detectorType<<" Detector detect keypoints with mean "<<mean<<"and var "<< variance<<endl;
+        // std::cout<< detectorType<<" Detector detect keypoints with mean "<<mean<<"and var "<< variance<<endl;
         //// EOF STUDENT ASSIGNMENT
 
         // optional : limit number of keypoints (helpful for debugging and learning)
@@ -203,7 +212,7 @@ int main(int argc, const char *argv[])
             // cout << "#4 : MATCH KEYPOINT DESCRIPTORS done" << endl;
 
             // visualize matches between current and previous image
-            bVis = false;
+            bVis = true;
             if (bVis)
             {
                 cv::Mat matchImg = ((dataBuffer.end() - 1)->cameraImg).clone();
@@ -216,10 +225,10 @@ int main(int argc, const char *argv[])
                 string windowName = "Matching keypoints between two camera images";
                 cv::namedWindow(windowName, 7);
                 cv::imshow(windowName, matchImg);
+                // cv::imwrite( imgNumber.str()+"matching.png", matchImg );
                 cout << "Press key to continue to next image" << endl;
                 cv::waitKey(0); // wait for key to be pressed
             }
-            bVis = false;
         }
 
     } // eof loop over all images
