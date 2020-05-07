@@ -18,6 +18,7 @@ the implementation of this part can be found in "MidTermProject_Camera_Student.c
 
 <img src="images/data_buffer.png" width="820" 
 height="248" />
+
 *Source: Udacity Sensor Fusion ND*
 
 ## MP.2 Keypoint Detection
@@ -34,7 +35,9 @@ Each of these detector can be selected by assigning the proper string keyword to
 
 
 <img src="images/0000keypoint.png" width="820" 
-height="248" />*Generated Keypoints using FAST Detector*
+height="248" />
+
+*Generated Keypoints using FAST Detector*
 
 ## MP.3 Keypoint Removal
 
@@ -43,7 +46,9 @@ this was done by implemening a Rejection filter focus on the ROI and controlled 
 thi filter is implmented in "MidTermProject_Camera_Student.cpp". Lines 125 - 135. 
 
 <img src="images/0000ROI.png" width="820" 
-height="248" />*Region of Interest filter*
+height="248" />
+
+*Region of Interest filter*
 
 ## MP.4 Keypoint Descriptors
 In this Part a set of different KeyPoints detector is implemented and tested against profided Dataset as follows:
@@ -63,7 +68,9 @@ Selection of Best Matches is done using both NN and KNN
 for the KNN , Descriptor Distance Ratio test is implemented to decide the best match.
 
 <img src="images/0001matching.png" width="820" 
-height="248" />*Matched Keypoints using BFmatcher and KNN for Fast/BRIEF pair*
+height="248" />
+
+*Matched Keypoints using BFmatcher and KNN for Fast/BRIEF pair*
 
 ## MP.7 Performance Evaluation 1
 
